@@ -283,6 +283,14 @@ def train_and_evaluate():
     final_model = best_model.best_estimator_
     final_model.fit(X_train, y_train)
 
+    # save selected features to a file
+    selected_features_idx = final_model.named_steps["kruskal"].selected_
+    feature_names = X.columns
+    selected_features = feature_names[selected_features_idx]
+    pd.Series(selected_features, name="feature").to_csv(
+        f"{OUTPUT_DIR}/selected_features.csv", index=False
+    )
+
     # evaluate on held-out test set (done only once) 
     y_pred       = final_model.predict(X_test)
     test_accuracy = accuracy_score(y_test, y_pred)
