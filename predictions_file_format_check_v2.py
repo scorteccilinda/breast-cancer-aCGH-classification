@@ -9,7 +9,7 @@
 import sys
 
 # Constants
-LINES_NEEDED = 4 #When you run it on your final file for submission, be sure you change this number to 58!
+LINES_NEEDED = 58 #When you run it on your final file for submission, be sure you change this number to 58!
 HEADER = "\"Sample\"\t\"Subgroup\""
 NO_COLS = 2
 

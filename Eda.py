@@ -79,11 +79,11 @@ def plot_dimensionality_reduction(x, y):
         output/dimensionality_reduction.png
     """
     pca   = PCA(n_components=2)
-    X_pca = pca.fit_transform(x)
+    x_pca = pca.fit_transform(x)
     ev    = pca.explained_variance_ratio_ * 100
 
-    X_tsne = TSNE(n_components=2, random_state=42, perplexity=30).fit_transform(x)
-    X_umap = umap.UMAP(n_components=2, random_state=42, n_neighbors=15).fit_transform(x)
+    x_tsne = TSNE(n_components=2, random_state=42, perplexity=30).fit_transform(x)
+    x_umap = umap.UMAP(n_components=2, random_state=42, n_neighbors=15).fit_transform(x)
 
     xlabels = [f"PC1 ({ev[0]:.1f}%)", "t-SNE 1", "UMAP 1"]
     ylabels = [f"PC2 ({ev[1]:.1f}%)", "t-SNE 2", "UMAP 2"]
@@ -91,7 +91,7 @@ def plot_dimensionality_reduction(x, y):
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     for ax, coords, title, xl, yl in zip(axes,
-                                          [X_pca, X_tsne, X_umap],
+                                          [x_pca, x_tsne, x_umap],
                                           ["PCA", "t-SNE", "UMAP"],
                                           xlabels, ylabels):
         for subtype, color in SUBTYPE_COLORS.items():
@@ -108,7 +108,6 @@ def plot_dimensionality_reduction(x, y):
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/dimensionality_reduction.png", dpi=150, bbox_inches="tight")
     plt.show()
-
 
 def feature_selection(x, y):
     """
@@ -210,9 +209,9 @@ def plot_copy_number_profiles(x, y):
     chrom_arr             = get_chrom_array(x.columns)
     chrom_ticks, chrom_bounds = get_chrom_positions(chrom_arr)
 
-    X_plot            = x.copy()
-    X_plot["subtype"] = y
-    mean_profiles     = X_plot.groupby("subtype").mean()
+    x_plot            = x.copy()
+    x_plot["subtype"] = y
+    mean_profiles     = x_plot.groupby("subtype").mean()
 
     fig, axes = plt.subplots(3, 1, figsize=(16, 10), sharex=True)
 
@@ -221,7 +220,7 @@ def plot_copy_number_profiles(x, y):
 
         for c in range(1, 24):
             idx = np.where(chrom_arr == c)[0]
-            ax.fill_between(idx, 0, profile[idx], color=CHROM_COLORS[c], alpha=0.4)
+            ax.fill_between(idx, 0, profile[idx], color=SUBTYPE_COLORS[subtype], alpha=0.4)
             ax.plot(idx, profile[idx], color=SUBTYPE_COLORS[subtype], linewidth=0.8)
             ax.axvline(chrom_bounds[c], color="lightgray", linewidth=0.8)
 
@@ -240,95 +239,16 @@ def plot_copy_number_profiles(x, y):
     plt.savefig(f"{OUTPUT_DIR}/copy_number_profiles.png", dpi=150, bbox_inches="tight")
     plt.show()
 
-def plot_hierarchical_clustering(x, y):
-    """
-    Hierarchical clustering heatmap of top 100 genomic regions by Kruskal-Wallis.
-    Rows are genomic regions ordered by chromosomal position (no row clustering).
-    Columns are samples clustered by similarity in copy number profile.
-    Samples are coloured by subtype on top, regions by chromosome on the left.
-
-    This shows whether samples naturally group by subtype based on copy number
-    alone, without using the labels during clustering.
-
-    Saves:
-        output/hierarchical_clustering.png
-    """
-
-    # load top 100 regions from kruskal results
-    kruskal_df = pd.read_csv(f"{OUTPUT_DIR}/feature_selection_kruskal.csv")
-    top_regions = kruskal_df.head(100)["region"].tolist()
-
-    # subset X to top regions, transpose so rows=regions, columns=samples
-    X_top = X[top_regions].T   # shape (100 regions, 100 samples)
-
-    # extract chromosome for each region for row colour bar
-    chrom_arr = get_chrom_array(X_top.index)
-    row_colors = pd.Series(
-        [CHROM_COLORS[c] for c in chrom_arr],
-        index=X_top.index
-    )
-
-    # sample subtype colour bar
-    col_colors = y.map(SUBTYPE_COLORS)
-
-    # discrete colormap: loss=blue, normal=lightgrey, gain=orange, amplification=red
-    from matplotlib.colors import ListedColormap, BoundaryNorm
-    cmap   = ListedColormap(["#3498db", "lightgrey", "#e67e22", "#e74c3c"])
-    bounds = [-1.5, -0.5, 0.5, 1.5, 2.5]
-    norm   = BoundaryNorm(bounds, cmap.N)
-
-    g = sns.clustermap(
-        X_top,
-        row_cluster  = False,         # keep chromosomal order on rows
-        col_cluster  = True,          # cluster samples — this is the interesting part
-        method       = "average",     # average linkage as in Perou 2000
-        metric       = "correlation", # correlation distance as in Perou 2000
-        row_colors   = row_colors,
-        col_colors   = col_colors,
-        cmap         = cmap,
-        norm         = norm,
-        figsize      = (16, 12),
-        xticklabels  = False,
-        yticklabels  = False,
-        cbar_pos     = None,          # we add manual legend instead
-    )
-
-    # legends
-    subtype_patches = [Patch(color=c, label=s)
-                       for s, c in SUBTYPE_COLORS.items()]
-    state_patches = [
-        Patch(color="#3498db",   label="Loss (-1)"),
-        Patch(color="lightgrey", label="Normal (0)"),
-        Patch(color="#e67e22",   label="Gain (1)"),
-        Patch(color="#e74c3c",   label="Amplification (2)"),
-    ]
-
-    g.ax_heatmap.legend(handles=subtype_patches, title="Subtype",
-                        bbox_to_anchor=(1.15, 1.1), loc="upper left", frameon=False)
-    g.fig.legend(handles=state_patches, title="Copy number",
-                 bbox_to_anchor=(1.15, 0.7), loc="upper left", frameon=False)
-
-    g.fig.suptitle(
-        "Hierarchical clustering of top 100 regions\n"
-        "Average linkage, correlation distance",
-        y=1.02, fontsize=13
-    )
-
-    plt.savefig(f"{OUTPUT_DIR}/hierarchical_clustering.png",
-                dpi=150, bbox_inches="tight")
-    plt.show()
-
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     prepare_data()
 
-    x = pd.read_csv(f"{DATA_DIR}/X_train.csv", index_col=0)
+    x = pd.read_csv(f"{DATA_DIR}/x_train.csv", index_col=0)
     y = pd.read_csv(f"{DATA_DIR}/y_train.csv", index_col=0).squeeze()
 
     plot_dimensionality_reduction(x, y)
     feature_selection(x, y)
     plot_copy_number_profiles(x, y)
-    plot_hierarchical_clustering(x, y)
 
 
 if __name__ == "__main__":

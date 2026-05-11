@@ -1,0 +1,6 @@
+classifier,mean,std,min,max
+NearestCentroid,254.4,185.4,83,607
+RandomForest,426.9,187.9,83,607
+SVM_RBF,264.7,220.3,83,607
+SVM_linear,217.8,173.9,83,607
+XGBoost,409.3,169.9,83,607
