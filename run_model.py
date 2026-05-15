@@ -54,13 +54,6 @@ def main():
 
     args = parser.parse_args()
 
-    if args.input_file is None:
-        sys.exit('Input is missing!')
-    if args.model_file is None:
-        sys.exit('Model file is missing!')
-    if args.output_file is None:
-        sys.exit('Output is not designated!')
-
     # load the saved hierarchical model
     saved = joblib.load(args.model_file)
     model_s1 = saved["stage1"]
